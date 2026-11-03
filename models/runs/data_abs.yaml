@@ -1,0 +1,6 @@
+path: /kaggle/input/datasets/hridoyyahmed/poribohon-bd
+train: /kaggle/input/datasets/hridoyyahmed/poribohon-bd/train/images
+val: /kaggle/input/datasets/hridoyyahmed/poribohon-bd/valid/images
+test: /kaggle/input/datasets/hridoyyahmed/poribohon-bd/test/images
+nc: 10
+names: [bicycle, bike, bus, car, cng, easybike, leguna, rickshaw, truck, van]

@@ -1,0 +1,13 @@
+# Local inference only. Training runs on Kaggle, which installs its own stack.
+#
+# opencv 4.10 ships a cp37-abi3 wheel, so it works on Python 3.14.
+# Newer releases need macOS 13+.
+opencv-python==4.10.0.84
+numpy>=1.26
+
+# Optional, roughly 2x faster than the OpenCV DNN fallback.
+# Needs Python <=3.12. On a CUDA machine install onnxruntime-gpu instead.
+# onnxruntime==1.19.2
+
+# Only needed to push training notebooks to Kaggle.
+# kaggle>=1.6

@@ -1,0 +1,21 @@
+# Virtualenv
+.venv/
+
+# macOS
+.DS_Store
+
+# Model weights and ONNX exports - large binaries, kept out of git.
+# The trained artifacts come out of the Kaggle run; the pretrained
+# yolov9*.pt checkpoints are fetched at runtime by ultralytics.
+*.pt
+*.onnx
+
+# Rendered demo video - regenerate with detect.py
+*.mp4
+
+# Staging dir created by training/push_to_kaggle.sh
+.kaggle_push/
+
+# Python
+__pycache__/
+*.py[cod]
