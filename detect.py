@@ -5,6 +5,10 @@
     python detect.py --setup                build an RTSP URL step by step
     python detect.py --source rtsp://...    view in browser at :8000
     python detect.py --source 0 --window    desktop window instead
+
+Server deployment - start with no camera and pick one from the browser:
+
+    python detect.py --source none --connect --token SECRET
 """
 from __future__ import annotations
 
@@ -69,17 +73,23 @@ def build_rtsp_url() -> str:
     return url
 
 
-def resolve_source(args) -> str | int:
-    """Command line, then RTSP_URL, then ask."""
+def resolve_source(args):
+    """Command line, then RTSP_URL, then ask. None means start with no camera."""
     if args.setup:
         return build_rtsp_url()
     if args.source:
+        if args.source.lower() in ("none", "idle"):
+            return None
         return int(args.source) if args.source.isdigit() else args.source
 
     from_env = os.environ.get("RTSP_URL")
     if from_env:
         print("Using RTSP_URL from the environment.")
         return from_env
+
+    # With the browser picker enabled there is nothing to prompt for.
+    if args.connect:
+        return None
 
     print("\nNo source given. Options:")
     print("  - paste an RTSP URL        rtsp://user:pass@192.168.1.64:554/stream1")
@@ -106,6 +116,8 @@ def main() -> int:
     ap.add_argument("--iou", type=float, default=0.45)
     ap.add_argument("--no-stretch", action="store_true",
                     help="use letterbox preprocessing (only for letterbox-trained models)")
+    ap.add_argument("--connect", action="store_true",
+                    help="let viewers set the source from the browser; needs --token off localhost")
     ap.add_argument("--window", action="store_true", help="desktop window instead of browser")
     ap.add_argument("--save", type=Path, default=None, help="record annotated mp4 (window mode)")
     ap.add_argument("--host", default="0.0.0.0")
@@ -118,6 +130,13 @@ def main() -> int:
     if not args.model.exists():
         sys.exit(f"model not found: {args.model}")
 
+    # Anyone who can reach the picker can make this process dial out to any
+    # address it can route to, so off localhost it has to be behind a token.
+    local_only = args.host in ("127.0.0.1", "localhost", "::1")
+    if args.connect and not local_only and not args.token:
+        sys.exit("--connect on a public interface needs --token SECRET "
+                 "(or bind with --host 127.0.0.1)")
+
     source = resolve_source(args)
     classes = load_classes(args.model, args.names)
     detector = Detector(args.model, args.imgsz, args.conf, args.iou,
@@ -127,15 +146,23 @@ def main() -> int:
     print(f"backend {detector.backend}")
     print(f"input   {args.imgsz}px {'letterbox' if args.no_stretch else 'stretch'}")
 
-    shown = source if isinstance(source, int) else str(source).split("@")[-1]
-    print(f"source  {shown}")
+    if source is not None:
+        shown = source if isinstance(source, int) else str(source).split("@")[-1]
+        print(f"source  {shown}")
 
     camera = Camera(source)
-    if not camera.wait_until_ready():
+    if source is None:
+        print("source  none - waiting for one from the browser")
+    elif not camera.wait_until_ready():
         camera.stop()
-        sys.exit("no frames after 20s. Check the URL, credentials and network.")
+        if not args.connect:
+            sys.exit("no frames after 20s. Check the URL, credentials and network.")
+        print("warning no frames yet; pick another source from the browser")
 
     if args.window:
+        if source is None:
+            camera.stop()
+            sys.exit("--window needs a --source; the picker is browser-only")
         try:
             return viewer.run(camera, detector, classes, args.save)
         finally:
@@ -143,7 +170,7 @@ def main() -> int:
 
     pipeline = Pipeline(camera, detector, classes, args.quality)
     pipeline.start()
-    server = serve(pipeline, args.host, args.port, args.token)
+    server = serve(pipeline, args.host, args.port, args.token, args.connect)
 
     suffix = f"?t={args.token}" if args.token else ""
     print(f"\n  local   http://localhost:{args.port}{suffix}")
@@ -152,6 +179,8 @@ def main() -> int:
         if not args.token:
             print("\n  Reachable by anyone who can route to this machine.")
             print("  On a public server pass --token to require a secret in the URL.")
+    if args.connect:
+        print("\n  Source picker enabled - press 'Source' in the page to change camera.")
     print("\n  ctrl-c to stop\n")
 
     try:
