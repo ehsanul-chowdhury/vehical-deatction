@@ -1,0 +1,5 @@
+# Windows batch files break if checked out with Unix line endings.
+*.bat text eol=crlf
+
+# Keep shell scripts Unix-ended even when cloned on Windows.
+*.sh text eol=lf
